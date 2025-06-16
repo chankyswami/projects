@@ -6,4 +6,4 @@ password_maxlen: 16
 kerberos_authentication: yes
 rsa_auth: yes
 banner: "/etc/issue"
-banner_text: "Authorized access only. All activity may be monitored and reported."
+banner_text: "Chanky's custom ------>>> Authorized access only. All activity may be monitored and reported."
