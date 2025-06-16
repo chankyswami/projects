@@ -1,4 +1,15 @@
 ---
+- name: Check if NTP is already configured
+  ansible.builtin.shell: grep -E '^server\s+' /etc/ntp.conf || true
+  register: ntp_config_check
+  changed_when: false
+
+- name: Fail if NTP is not configured
+  ansible.builtin.fail:
+    msg: "NTP is not configured. Skipping NTP setup."
+  when: ntp_config_check.stdout == ''
+
+# Proceed only if NTP is configured
 - name: Configure NTP servers block in ntp.conf
   ansible.builtin.blockinfile:
     path: /etc/ntp.conf
@@ -7,9 +18,11 @@
       {% for server in ntp_servers %}
       server {{ server }} iburst
       {% endfor %}
+  when: ntp_config_check.stdout != ''
 
 - name: Ensure NTP service is enabled and running
   ansible.builtin.service:
     name: ntpd
     enabled: yes
     state: started
+  when: ntp_config_check.stdout != ''
