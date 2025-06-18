@@ -1,0 +1,72 @@
+---
+- name: Detect OS type
+  ansible.builtin.raw: uname
+  register: os_name
+  changed_when: false
+
+- name: Set platform-specific facts
+  set_fact:
+    ssh_service_restart_cmd: >-
+      {% if 'AIX' in os_name.stdout %}
+        startsrc -s sshd
+      {% elif 'SunOS' in os_name.stdout %}
+        svcadm restart svc:/network/ssh:default
+      {% elif 'HP-UX' in os_name.stdout %}
+        /sbin/init.d/sshd restart
+      {% else %}
+        echo "Unsupported OS"
+      {% endif %}
+    banner_owner_group: >-
+      {% if 'AIX' in os_name.stdout %}
+        root:system
+      {% else %}
+        root:root
+      {% endif %}
+
+- name: Backup /etc/issue if it exists
+  ansible.builtin.raw: |
+    [ -f {{ banner_file }} ] && cp {{ banner_file }} {{ banner_file }}.bak_{{ timestamp }} || echo "No /etc/issue found"
+
+- name: Backup sshd_config if it exists
+  ansible.builtin.raw: |
+    [ -f {{ sshd_config_path }} ] && cp {{ sshd_config_path }} {{ sshd_config_path }}.bak_{{ timestamp }} || echo "No sshd_config found"
+
+- name: Copy banner file from control node to temp location
+  ansible.builtin.copy:
+    src: banner.txt
+    dest: /tmp/banner.txt
+  delegate_to: localhost
+
+- name: Push banner file to remote /etc/issue
+  ansible.builtin.shell: cat /tmp/banner.txt > {{ banner_file }}
+
+- name: Set permissions on /etc/issue
+  ansible.builtin.raw: |
+    chmod 644 {{ banner_file }} && chown {{ banner_owner_group }} {{ banner_file }}
+
+- name: Ensure Banner directive is present in sshd_config
+  ansible.builtin.raw: |
+    if grep -q '^Banner' {{ sshd_config_path }}; then
+      sed 's|^Banner.*|Banner /etc/issue|' {{ sshd_config_path }} > /tmp/sshd_config && mv /tmp/sshd_config {{ sshd_config_path }}
+    else
+      echo 'Banner /etc/issue' >> {{ sshd_config_path }}
+    fi
+
+- name: Ensure RSAAuthentication is enabled
+  ansible.builtin.raw: |
+    if grep -q '^RSAAuthentication' {{ sshd_config_path }}; then
+      sed 's|^RSAAuthentication.*|RSAAuthentication yes|' {{ sshd_config_path }} > /tmp/sshd_config && mv /tmp/sshd_config {{ sshd_config_path }}
+    else
+      echo 'RSAAuthentication yes' >> {{ sshd_config_path }}
+    fi
+
+- name: Ensure KerberosAuthentication is enabled
+  ansible.builtin.raw: |
+    if grep -q '^KerberosAuthentication' {{ sshd_config_path }}; then
+      sed 's|^KerberosAuthentication.*|KerberosAuthentication yes|' {{ sshd_config_path }} > /tmp/sshd_config && mv /tmp/sshd_config {{ sshd_config_path }}
+    else
+      echo 'KerberosAuthentication yes' >> {{ sshd_config_path }}
+    fi
+
+- name: Restart SSH service
+  ansible.builtin.raw: "{{ ssh_service_restart_cmd }}"

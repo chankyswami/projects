@@ -7,3 +7,6 @@ kerberos_authentication: yes
 rsa_auth: yes
 banner: "/etc/issue"
 banner_text: "Chanky's custom ------>>> Authorized access only. All activity may be monitored and reported."
+timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+sshd_config_path: "/etc/ssh/sshd_config"
+ntp_conf_path: /etc/ntp.conf

@@ -1,13 +1,28 @@
 ---
 
+# ntp for linux and unix(AIX.Solaris,HP-UX)
 - name: Include NTP configuration
   include_tasks: ntp.yml
   when: run_mode == 'ntp'
+  
+- name: Include NTP configuration
+  include_tasks: ntp_unix.yml
+  when: run_mode == 'ntp_unix'
 
+# password policy for linux and unix(AIX.Solaris,HP-UX)
 - name: Include Password policy configuration
   include_tasks: password_policy.yml
   when: run_mode == 'password_policy'
 
+- name: Include Password policy configuration
+  include_tasks: password_policy_unix.yml
+  when: run_mode == 'password_policy_unix'
+
+# kerberos , RSA and Banner config setup for linux and unix(AIX.Solaris,HP-UX)
 - name: Include Kerberos, RSA, Banner configuration
   include_tasks: kerberos_rsa_banner.yml
   when: run_mode == 'k_r_b'
+
+- name: Include Kerberos, RSA, Banner configuration
+  include_tasks: kerberos_rsa_banner_unix.yml
+  when: run_mode == 'kerberos_rsa_banner_unix'
