@@ -1,27 +1,51 @@
 ---
-# NTP for Linux and Unix (AIX, Solaris, HP-UX)
-- name: Include NTP configuration (Linux)
+- name: Debug user selections
+  debug:
+    msg:
+      - "Run modes selected: {{ run_modes | default([]) }}"
+      - "OS type selected: {{ os-type | default([]) }}"
+
+# -----------------------------
+# NTP
+# -----------------------------
+- name: Include NTP configuration (Generic Linux)
   include_tasks: ntp.yml
-  when: "'ntp' in run_modes"
+  when:
+    - "'ntp' in run_modes"
+    - "'generic' in os-type"
 
-- name: Include NTP configuration (Unix)
+- name: Include NTP configuration (Unix variants)
   include_tasks: ntp_unix.yml
-  when: "'ntp_unix' in run_modes"
+  when:
+    - "'ntp' in run_modes"
+    - "'unix' in os-type"
 
-# Password policy for Linux and Unix (AIX, Solaris, HP-UX)
-- name: Include Password policy configuration (Linux)
+# -----------------------------
+# Password Policy
+# -----------------------------
+- name: Include Password policy configuration (Generic Linux)
   include_tasks: password_policy.yml
-  when: "'password_policy' in run_modes"
+  when:
+    - "'password_policy' in run_modes"
+    - "'generic' in os-type"
 
-- name: Include Password policy configuration (Unix)
+- name: Include Password policy configuration (Unix variants)
   include_tasks: password_policy_unix.yml
-  when: "'password_policy_unix' in run_modes"
+  when:
+    - "'password_policy' in run_modes"
+    - "'unix' in os-type"
 
-# Kerberos, RSA, and Banner config setup for Linux and Unix (AIX, Solaris, HP-UX)
-- name: Include Kerberos, RSA, Banner configuration (Linux)
+# -----------------------------
+# Kerberos, RSA, Banner
+# -----------------------------
+- name: Include Kerberos, RSA, Banner configuration (Generic Linux)
   include_tasks: kerberos_rsa_banner.yml
-  when: "'kerberos_rsa_banner' in run_modes"
+  when:
+    - "'kerberos_rsa_banner' in run_modes"
+    - "'generic' in os-type"
 
-- name: Include Kerberos, RSA, Banner configuration (Unix)
+- name: Include Kerberos, RSA, Banner configuration (Unix variants)
   include_tasks: kerberos_rsa_banner_unix.yml
-  when: "'kerberos_rsa_banner_unix' in run_modes"
+  when:
+    - "'kerberos_rsa_banner' in run_modes"
+    - "'unix' in os-type"
