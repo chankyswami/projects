@@ -2,8 +2,9 @@
 - name: Debug user selections
   debug:
     msg:
-      - "Run modes selected: {{ run_modes | default([]) }}"
-      - "OS type selected: {{ os_type | default([]) }}"
+      - "Run modes selected: {{ run_modes }}"
+      - "OS type selected: {{ os_type | default('generic') }}"
+
 
 # -----------------------------
 # NTP

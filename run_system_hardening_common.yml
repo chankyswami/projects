@@ -5,9 +5,16 @@
   gather_facts: false
 
   vars:
-    # default values (AWX will override these through Survey)
+    # Default values, in case survey doesn't pass anything
     run_modes: "{{ run_modes | default(['ntp']) }}"
-    os_type: "{{ survey_os_type | default('generic') }}"   # renamed to avoid recursion
+    # Read from both formats to support old and new surveys
+    os_type: >-
+      {{ (os_type | default(None)) 
+         or (os | default(None)) 
+         or (os_type_survey | default(None)) 
+         or (lookup('vars', 'os_type_input', default=None)) 
+         or (lookup('vars', 'os_type_from_survey', default=None)) 
+         or (vars['os-type'] | default('generic')) }}
 
   roles:
     - role: system_hardening_common
