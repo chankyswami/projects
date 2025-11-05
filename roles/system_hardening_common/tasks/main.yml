@@ -3,7 +3,7 @@
   debug:
     msg:
       - "Run modes selected: {{ run_modes | default([]) }}"
-      - "OS type selected: {{ os-type | default([]) }}"
+      - "OS type selected: {{ os_type | default([]) }}"
 
 # -----------------------------
 # NTP
@@ -12,13 +12,13 @@
   include_tasks: ntp.yml
   when:
     - "'ntp' in run_modes"
-    - "'generic' in os-type"
+    - "'generic' in os_type"
 
 - name: Include NTP configuration (Unix variants)
   include_tasks: ntp_unix.yml
   when:
     - "'ntp' in run_modes"
-    - "'unix' in os-type"
+    - "'unix' in os_type"
 
 # -----------------------------
 # Password Policy
@@ -27,13 +27,13 @@
   include_tasks: password_policy.yml
   when:
     - "'password_policy' in run_modes"
-    - "'generic' in os-type"
+    - "'generic' in os_type"
 
 - name: Include Password policy configuration (Unix variants)
   include_tasks: password_policy_unix.yml
   when:
     - "'password_policy' in run_modes"
-    - "'unix' in os-type"
+    - "'unix' in os_type"
 
 # -----------------------------
 # Kerberos, RSA, Banner
@@ -42,10 +42,10 @@
   include_tasks: kerberos_rsa_banner.yml
   when:
     - "'kerberos_rsa_banner' in run_modes"
-    - "'generic' in os-type"
+    - "'generic' in os_type"
 
 - name: Include Kerberos, RSA, Banner configuration (Unix variants)
   include_tasks: kerberos_rsa_banner_unix.yml
   when:
     - "'kerberos_rsa_banner' in run_modes"
-    - "'unix' in os-type"
+    - "'unix' in os_type"
