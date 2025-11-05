@@ -3,6 +3,6 @@
   hosts: all
   become: true
   vars:
-    run_mode: k_r_b
+    run_modes: k_r_b
   roles:
     - role: system_hardening_common

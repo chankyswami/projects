@@ -3,6 +3,6 @@
   hosts: all
   become: true
   vars:
-    run_mode: ntp
+    run_modes: ntp
   roles:
     - role: system_hardening_common
