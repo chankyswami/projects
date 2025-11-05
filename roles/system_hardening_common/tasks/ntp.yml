@@ -1,15 +1,19 @@
 ---
+# =====================================
+# Generic Linux NTP Configuration
+# =====================================
+
 - name: Check if NTP is already configured
   ansible.builtin.shell: grep -E '^server\s+' /etc/ntp.conf || true
   register: ntp_config_check
   changed_when: false
 
-- name: Fail if NTP is not configured
-  ansible.builtin.fail:
-    msg: "NTP is not configured. Skipping NTP setup."
+- name: Debug if NTP is missing — but do NOT fail
+  ansible.builtin.debug:
+    msg: "NTP not configured — skipping NTP setup."
   when: ntp_config_check.stdout == ''
 
-# Proceed only if NTP is configured
+# ✅ Only run these when NTP server lines already exist
 - name: Configure NTP servers block in ntp.conf
   ansible.builtin.blockinfile:
     path: /etc/ntp.conf
