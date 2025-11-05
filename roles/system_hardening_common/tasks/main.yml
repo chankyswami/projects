@@ -1,28 +1,33 @@
 ---
+# Dynamically include specific hardening tasks based on run_modes and os_type
 
-# ntp for linux and unix(AIX.Solaris,HP-UX)
-- name: Include NTP configuration
-  include_tasks: ntp.yml
-  when: run_mode == 'ntp'
-  
-- name: Include NTP configuration
-  include_tasks: ntp_unix.yml
-  when: run_mode == 'ntp_unix'
+- name: Normalize run_modes to a list
+  set_fact:
+    run_modes: >-
+      {%- if run_modes is iterable and run_modes is not string -%}
+        {{ run_modes }}
+      {%- elif run_modes is string and ',' in run_modes -%}
+        {{ run_modes.replace(' ', '').split(',') }}
+      {%- else -%}
+        [ "{{ run_modes }}" ]
+      {%- endif -%}
 
-# password policy for linux and unix(AIX.Solaris,HP-UX)
-- name: Include Password policy configuration
-  include_tasks: password_policy.yml
-  when: run_mode == 'password_policy'
+- name: Debug selected modes
+  debug:
+    msg:
+      - "Selected run_modes: {{ run_modes }}"
+      - "Selected os_type: {{ os_type }}"
 
-- name: Include Password policy configuration
-  include_tasks: password_policy_unix.yml
-  when: run_mode == 'password_policy_unix'
-
-# kerberos , RSA and Banner config setup for linux and unix(AIX.Solaris,HP-UX)
-- name: Include Kerberos, RSA, Banner configuration
-  include_tasks: kerberos_rsa_banner.yml
-  when: run_mode == 'k_r_b'
-
-- name: Include Kerberos, RSA, Banner configuration
-  include_tasks: kerberos_rsa_banner_unix.yml
-  when: run_mode == 'kerberos_rsa_banner_unix'
+- name: Include tasks for each selected mode dynamically
+  include_tasks: "{{ item_task }}"
+  loop: "{{ run_modes }}"
+  loop_control:
+    label: "{{ item }}"
+  vars:
+    item_task: >-
+      {{
+        (item + '_unix.yml')
+        if os_type == 'unix'
+        else (item + '.yml')
+      }}
+  when: item_task is file

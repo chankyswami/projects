@@ -1,0 +1,13 @@
+---
+- name: Run System Hardening (Common Entry Point)
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    # default values (AWX will override these through Survey)
+    run_modes: "{{ run_modes | default(['ntp']) }}"
+    os_type: "{{ os_type | default('generic') }}"   # valid: unix | generic
+
+  roles:
+    - role: system_hardening_common
