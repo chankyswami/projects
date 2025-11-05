@@ -1,8 +1,0 @@
----
-- name: Run only kerberos_rsa_banner tasks
-  hosts: all
-  become: true
-  vars:
-    run_modes: k_r_b
-  roles:
-    - role: system_hardening_common

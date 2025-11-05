@@ -1,8 +1,0 @@
----
-- name: Run only NTP tasks
-  hosts: all
-  become: true
-  vars:
-    run_modes: ntp
-  roles:
-    - role: system_hardening_common
