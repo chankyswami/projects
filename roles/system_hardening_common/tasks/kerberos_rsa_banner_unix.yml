@@ -6,22 +6,15 @@
 - name: Set platform-specific facts
   set_fact:
     ssh_service_restart_cmd: >-
-      {% if 'AIX' in os_name.stdout %}
-        startsrc -s sshd
-      {% elif 'SunOS' in os_name.stdout %}
-        svcadm restart svc:/network/ssh:default
-      {% elif 'HP-UX' in os_name.stdout %}
-        /sbin/init.d/sshd restart
-      {% else %}
-        echo "Unsupported OS"
-      {% endif %}
+      {{ 'startsrc -s sshd'
+         if 'AIX' in os_name.stdout
+         else 'svcadm restart svc:/network/ssh:default'
+         if 'SunOS' in os_name.stdout
+         else '/sbin/init.d/sshd restart'
+         if 'HP-UX' in os_name.stdout
+         else 'systemctl restart ssh' }}
     banner_owner: root
-    banner_group: >-
-      {% if 'AIX' in os_name.stdout %}
-        system
-      {% else %}
-        root
-      {% endif %}
+    banner_group: "{{ 'system' if 'AIX' in os_name.stdout else 'root' }}"
 
 - name: Backup /etc/issue if it exists
   ansible.builtin.raw: |
