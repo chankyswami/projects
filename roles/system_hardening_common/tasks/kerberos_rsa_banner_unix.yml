@@ -31,14 +31,21 @@
   ansible.builtin.raw: |
     [ -f {{ sshd_config_path }} ] && cp {{ sshd_config_path }} {{ sshd_config_path }}.bak_{{ timestamp }} || echo "No sshd_config found"
 
-- name: Copy banner file from control node to temp location
-  ansible.builtin.copy:
-    src: banner.txt
-    dest: /tmp/banner.txt
-  delegate_to: localhost
+- name: Write banner to /etc/issue
+  ansible.builtin.raw: |
+    cat << 'EOF' > {{ banner_file }}
+    {{ banner_text }}
+    EOF
 
-- name: Push banner file to remote /etc/issue
-  ansible.builtin.shell: cat /tmp/banner.txt > {{ banner_file }}
+
+# - name: Copy banner file from control node to temp location
+#   ansible.builtin.copy:
+#     src: banner.txt
+#     dest: /tmp/banner.txt
+#   delegate_to: localhost
+
+# - name: Push banner file to remote /etc/issue
+#   ansible.builtin.shell: cat /tmp/banner.txt > {{ banner_file }}
 
 - name: Set permissions on /etc/issue
   ansible.builtin.raw: |
