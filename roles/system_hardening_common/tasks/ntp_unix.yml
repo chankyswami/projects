@@ -1,7 +1,7 @@
----
 # ============================================
 # NTP Hardening for UNIX Variants
 # AIX / Solaris / HP-UX
+# Harden only if already configured
 # ============================================
 
 - name: Detect OS type
@@ -29,27 +29,34 @@
       {% endif %}
 
 # ------------------------------------------------
-# Ensure NTP config file exists
+# Check if NTP is configured at all
 # ------------------------------------------------
-- name: Ensure NTP config file exists
+- name: Check if NTP config exists and has servers
   ansible.builtin.raw: |
-    [ -f {{ ntp_conf_path }} ] || touch {{ ntp_conf_path }}
+    [ -f {{ ntp_conf_path }} ] && grep -E '^\s*server\s+' {{ ntp_conf_path }} || true
+  register: ntp_config_check
   changed_when: false
 
 # ------------------------------------------------
-# Backup existing config (only if non-empty)
+# Skip if NTP is not configured
 # ------------------------------------------------
-- name: Backup existing NTP config if present
-  ansible.builtin.raw: |
-    if [ -s {{ ntp_conf_path }} ]; then
-      cp {{ ntp_conf_path }} {{ ntp_conf_path }}.bak_{{ timestamp }}
-    fi
-  changed_when: false
+- name: Skip NTP hardening if not configured
+  ansible.builtin.debug:
+    msg: "NTP is not configured on this UNIX system. Skipping hardening."
+  when: ntp_config_check.stdout == ''
 
 # ------------------------------------------------
-# Configure NTP servers (managed block)
+# Backup existing config
 # ------------------------------------------------
-- name: Configure NTP servers (ANSIBLE MANAGED)
+- name: Backup existing NTP config
+  ansible.builtin.raw: |
+    cp {{ ntp_conf_path }} {{ ntp_conf_path }}.bak_{{ timestamp }}
+  when: ntp_config_check.stdout != ''
+
+# ------------------------------------------------
+# Enforce managed NTP servers
+# ------------------------------------------------
+- name: Enforce managed NTP servers
   ansible.builtin.raw: |
     awk '
     BEGIN {found=0}
@@ -63,4 +70,5 @@
     {% endfor %}
       print "# END ANSIBLE MANAGED NTP SERVERS"
     }' {{ ntp_conf_path }} > /tmp/ntp.conf && mv /tmp/ntp.conf {{ ntp_conf_path }}
+  when: ntp_config_check.stdout != ''
   notify: Restart NTP service
