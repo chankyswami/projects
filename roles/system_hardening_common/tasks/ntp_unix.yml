@@ -33,7 +33,9 @@
 # ------------------------------------------------
 - name: Check if NTP config exists and has servers
   ansible.builtin.raw: |
-    [ -f {{ ntp_conf_path }} ] && grep -E '^\s*server\s+' {{ ntp_conf_path }} || true
+    if [ -f {{ ntp_conf_path }} ]; then
+      grep -E '^[[:space:]]*server[[:space:]]+' {{ ntp_conf_path }} || true
+    fi
   register: ntp_config_check
   changed_when: false
 
