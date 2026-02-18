@@ -81,7 +81,7 @@
       mv "$TMP" {{ sshd_config_path }}
     fi
   become: true
-  notify: Restart SSH service
+  notify: Restart SSH service-unix
 
 # ------------------------------------------------
 # Kerberos enforcement ONLY if already configured
