@@ -24,9 +24,9 @@
     banner_group: "{{ 'system' if 'AIX' in os_name.stdout else 'root' }}"
 
 # ------------------------------------------------
-# Backup files safely
+# Backup files (once per run, no change reported)
 # ------------------------------------------------
-- name: Backup /etc/issue if it exists
+- name: Backup banner file if it exists
   ansible.builtin.raw: |
     [ -f {{ banner_file }} ] && cp {{ banner_file }} {{ banner_file }}.bak_{{ timestamp }} || true
   changed_when: false
@@ -39,52 +39,81 @@
   become: true
 
 # ------------------------------------------------
-# Banner enforcement
+# Banner enforcement (IDEMPOTENT)
 # ------------------------------------------------
-- name: Ensure login banner content
+- name: Enforce login banner content safely
   ansible.builtin.raw: |
-    if [ ! -f {{ banner_file }} ] || ! grep -Fxq "{{ banner_text }}" {{ banner_file }}; then
-      cat << 'EOF' > {{ banner_file }}
+    TMP=$(mktemp /tmp/issue.XXXXXX)
+    cat << 'EOF' > "$TMP"
     {{ banner_text }}
     EOF
+
+    if [ ! -f {{ banner_file }} ] || ! cmp -s "$TMP" {{ banner_file }}; then
+      mv "$TMP" {{ banner_file }}
+      echo "changed"
+    else
+      rm -f "$TMP"
     fi
+  register: banner_update
+  changed_when: "'changed' in banner_update.stdout"
   become: true
   notify: Restart SSH service-unix
 
-- name: Ensure banner permissions
+- name: Ensure banner permissions (no false change)
   ansible.builtin.raw: |
-    chmod 644 {{ banner_file }} &&
-    chown {{ banner_owner }} {{ banner_file }} &&
-    chgrp {{ banner_group }} {{ banner_file }}
-  changed_when: false
+    stat -c "%a %U %G" {{ banner_file }} 2>/dev/null | grep -q "644 {{ banner_owner }} {{ banner_group }}" \
+    || (chmod 644 {{ banner_file }} && chown {{ banner_owner }} {{ banner_file }} && chgrp {{ banner_group }} {{ banner_file }} && echo changed)
+  register: banner_perm
+  changed_when: "'changed' in banner_perm.stdout"
   become: true
 
+# ------------------------------------------------
+# SSH Banner directive (IDEMPOTENT)
+# ------------------------------------------------
 - name: Ensure Banner directive in sshd_config
   ansible.builtin.raw: |
-    if ! grep -q '^Banner /etc/issue' {{ sshd_config_path }}; then
-      TMP=$(mktemp /tmp/sshd_config.XXXXXX)
-      grep -v '^Banner' {{ sshd_config_path }} > "$TMP"
-      echo 'Banner /etc/issue' >> "$TMP"
+    grep -q '^Banner {{ banner_file }}' {{ sshd_config_path }} && exit 0
+
+    TMP=$(mktemp /tmp/sshd_config.XXXXXX)
+    grep -v '^Banner' {{ sshd_config_path }} > "$TMP"
+    echo 'Banner {{ banner_file }}' >> "$TMP"
+
+    if ! cmp -s "$TMP" {{ sshd_config_path }}; then
       mv "$TMP" {{ sshd_config_path }}
+      echo changed
+    else
+      rm -f "$TMP"
     fi
+  register: ssh_banner
+  changed_when: "'changed' in ssh_banner.stdout"
   become: true
   notify: Restart SSH service-unix
 
 # ------------------------------------------------
-# RSAAuthentication (legacy only)
+# RSAAuthentication (legacy, only if exists)
 # ------------------------------------------------
-- name: Ensure RSAAuthentication enabled if present
+- name: Enforce RSAAuthentication if present
   ansible.builtin.raw: |
-    if grep -q '^RSAAuthentication' {{ sshd_config_path }}; then
-      TMP=$(mktemp /tmp/sshd_config.XXXXXX)
-      sed 's/^RSAAuthentication.*/RSAAuthentication yes/' {{ sshd_config_path }} > "$TMP" &&
+    grep -q '^RSAAuthentication' {{ sshd_config_path }} || exit 0
+
+    grep -q '^RSAAuthentication yes' {{ sshd_config_path }} && exit 0
+
+    TMP=$(mktemp /tmp/sshd_config.XXXXXX)
+    sed 's/^RSAAuthentication.*/RSAAuthentication yes/' {{ sshd_config_path }} > "$TMP"
+
+    if ! cmp -s "$TMP" {{ sshd_config_path }}; then
       mv "$TMP" {{ sshd_config_path }}
+      echo changed
+    else
+      rm -f "$TMP"
     fi
+  register: rsa_auth
+  changed_when: "'changed' in rsa_auth.stdout"
   become: true
   notify: Restart SSH service-unix
 
 # ------------------------------------------------
-# Kerberos enforcement ONLY if already configured
+# Kerberos enforcement (ONLY if configured)
 # ------------------------------------------------
 - name: Check if KerberosAuthentication is present
   ansible.builtin.raw: |
@@ -95,9 +124,19 @@
 
 - name: Enforce KerberosAuthentication if present
   ansible.builtin.raw: |
+    grep -q '^KerberosAuthentication yes' {{ sshd_config_path }} && exit 0
+
     TMP=$(mktemp /tmp/sshd_config.XXXXXX)
-    sed 's/^KerberosAuthentication.*/KerberosAuthentication yes/' {{ sshd_config_path }} > "$TMP" &&
-    mv "$TMP" {{ sshd_config_path }}
+    sed 's/^KerberosAuthentication.*/KerberosAuthentication yes/' {{ sshd_config_path }} > "$TMP"
+
+    if ! cmp -s "$TMP" {{ sshd_config_path }}; then
+      mv "$TMP" {{ sshd_config_path }}
+      echo changed
+    else
+      rm -f "$TMP"
+    fi
   when: kerberos_present.stdout == "present"
+  register: kerberos_auth
+  changed_when: "'changed' in kerberos_auth.stdout"
   become: true
   notify: Restart SSH service-unix
