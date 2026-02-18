@@ -49,7 +49,7 @@
     EOF
     fi
   become: true
-  notify: Restart SSH service
+  notify: Restart SSH service-unix
 
 - name: Ensure banner permissions
   ansible.builtin.raw: |
@@ -68,7 +68,7 @@
       mv "$TMP" {{ sshd_config_path }}
     fi
   become: true
-  notify: Restart SSH service
+  notify: Restart SSH service-unix
 
 # ------------------------------------------------
 # RSAAuthentication (legacy only)
