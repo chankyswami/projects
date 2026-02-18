@@ -1,10 +1,18 @@
 ---
+# ===========================
+# BACKUP EXISTING FILES
+# ===========================
+
 - name: Backup /etc/issue if it exists
   ansible.builtin.copy:
     src: /etc/issue
     dest: /etc/issue.bak_{{ ansible_date_time.iso8601 }}
     remote_src: yes
-  when: ansible_facts['os_family'] != 'Windows' and ansible_facts['distribution'] != 'CoreOS'
+  when:
+    - ansible_os_family is defined
+    - ansible_os_family != 'Windows'
+    - ansible_distribution is defined
+    - ansible_distribution != 'CoreOS'
   ignore_errors: true
 
 - name: Backup /etc/ssh/sshd_config if it exists
@@ -12,10 +20,16 @@
     src: /etc/ssh/sshd_config
     dest: /etc/ssh/sshd_config.bak_{{ ansible_date_time.iso8601 }}
     remote_src: yes
-  when: ansible_facts['os_family'] != 'Windows' and ansible_facts['distribution'] != 'CoreOS'
+  when:
+    - ansible_os_family is defined
+    - ansible_os_family != 'Windows'
+    - ansible_distribution is defined
+    - ansible_distribution != 'CoreOS'
   ignore_errors: true
 
-# --- Your original tasks ---
+# ===========================
+# SSH BANNER CONFIGURATION
+# ===========================
 
 - name: Copy banner file
   ansible.builtin.copy:
@@ -30,20 +44,26 @@
     path: /etc/ssh/sshd_config
     regexp: '^#?Banner'
     line: 'Banner /etc/issue'
+    create: yes
+    backup: yes
+  notify: Restart sshd
+
+# ===========================
+# SSH AUTHENTICATION HARDENING
+# ===========================
 
 - name: Enable RSAAuthentication in sshd_config
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: '^#?RSAAuthentication'
     line: 'RSAAuthentication yes'
+    create: yes
+  notify: Restart sshd
 
 - name: Enable Kerberos Authentication in sshd_config
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: '^#?KerberosAuthentication'
     line: 'KerberosAuthentication yes'
-
-- name: Restart SSH service
-  ansible.builtin.service:
-    name: sshd
-    state: restarted
+    create: yes
+  notify: Restart sshd
