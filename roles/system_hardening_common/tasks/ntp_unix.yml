@@ -15,34 +15,29 @@
 
 # ------------------------------------------------
 # Set NTP paths and restart command per OS
+# (NO multiline values to avoid shell issues)
 # ------------------------------------------------
 - name: Set NTP paths and restart command per OS
   ansible.builtin.set_fact:
-    ntp_conf_path: >-
-      {% if 'SunOS' in os_name.stdout %}
-        /etc/inet/ntp.conf
-      {% else %}
-        /etc/ntp.conf
-      {% endif %}
+    ntp_conf_path: "{{ '/etc/inet/ntp.conf' if 'SunOS' in os_name.stdout else '/etc/ntp.conf' }}"
     ntp_restart_cmd: >-
       {% if 'AIX' in os_name.stdout %}
-        stopsrc -s xntpd; startsrc -s xntpd
+      stopsrc -s xntpd; startsrc -s xntpd
       {% elif 'SunOS' in os_name.stdout %}
-        svcadm restart ntp
+      svcadm restart ntp
       {% elif 'HP-UX' in os_name.stdout %}
-        /sbin/init.d/xntpd restart
+      /sbin/init.d/xntpd restart
       {% else %}
-        echo "Unsupported UNIX OS"
+      echo "Unsupported UNIX OS"
       {% endif %}
 
 # ------------------------------------------------
-# Check if NTP is configured at all
-# (file exists AND has at least one server entry)
+# Check if NTP config exists AND has server entries
 # ------------------------------------------------
 - name: Check if NTP config exists and has servers
   ansible.builtin.raw: |
-    if [ -f {{ ntp_conf_path }} ]; then
-      grep -E '^[[:space:]]*server[[:space:]]+' {{ ntp_conf_path }} || :
+    if [ -f "{{ ntp_conf_path }}" ]; then
+      grep -E '^[[:space:]]*server[[:space:]]+' "{{ ntp_conf_path }}" || :
     else
       :
     fi
@@ -59,11 +54,13 @@
   when: ntp_config_check.stdout | trim == ''
 
 # ------------------------------------------------
-# Backup existing config
+# Backup existing NTP config (SAFE)
 # ------------------------------------------------
 - name: Backup existing NTP config
   ansible.builtin.raw: |
-    cp {{ ntp_conf_path }} {{ ntp_conf_path }}.bak_{{ timestamp }}
+    if [ -f "{{ ntp_conf_path }}" ]; then
+      cp "{{ ntp_conf_path }}" "{{ ntp_conf_path }}.bak_{{ timestamp }}"
+    fi
   when: ntp_config_check.stdout | trim != ''
   changed_when: true
 
@@ -83,7 +80,7 @@
       print "server {{ server }} iburst"
     {% endfor %}
       print "# END ANSIBLE MANAGED NTP SERVERS"
-    }' {{ ntp_conf_path }} > /tmp/ntp.conf && mv /tmp/ntp.conf {{ ntp_conf_path }}
+    }' "{{ ntp_conf_path }}" > /tmp/ntp.conf && mv /tmp/ntp.conf "{{ ntp_conf_path }}"
   when: ntp_config_check.stdout | trim != ''
   notify: Restart NTP service
   changed_when: true
