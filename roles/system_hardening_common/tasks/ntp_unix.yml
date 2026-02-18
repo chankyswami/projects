@@ -1,11 +1,22 @@
 ---
+# ============================================
+# NTP Hardening for UNIX Variants
+# AIX / Solaris / HP-UX
+# ============================================
+
 - name: Detect OS type
   ansible.builtin.raw: uname
   register: os_name
   changed_when: false
 
-- name: Set NTP service and restart command based on OS
-  set_fact:
+- name: Set NTP paths and restart command per OS
+  ansible.builtin.set_fact:
+    ntp_conf_path: >-
+      {% if 'SunOS' in os_name.stdout %}
+        /etc/inet/ntp.conf
+      {% else %}
+        /etc/ntp.conf
+      {% endif %}
     ntp_restart_cmd: >-
       {% if 'AIX' in os_name.stdout %}
         stopsrc -s xntpd; startsrc -s xntpd
@@ -14,24 +25,31 @@
       {% elif 'HP-UX' in os_name.stdout %}
         /sbin/init.d/xntpd restart
       {% else %}
-        echo "Unsupported OS"
+        echo "Unsupported UNIX OS"
       {% endif %}
-    ntp_config_path: "{{ ntp_conf_path }}"
 
-- name: Check if NTP is already configured
-  ansible.builtin.raw: grep -E '^server\s+' {{ ntp_conf_path }} || true
-  register: ntp_config_check
+# ------------------------------------------------
+# Ensure NTP config file exists
+# ------------------------------------------------
+- name: Ensure NTP config file exists
+  ansible.builtin.raw: |
+    [ -f {{ ntp_conf_path }} ] || touch {{ ntp_conf_path }}
   changed_when: false
 
-- name: Fail if NTP is not configured at all
-  ansible.builtin.fail:
-    msg: "NTP is not configured (no server lines in {{ ntp_conf_path }})."
-  when: ntp_config_check.stdout == ''
+# ------------------------------------------------
+# Backup existing config (only if non-empty)
+# ------------------------------------------------
+- name: Backup existing NTP config if present
+  ansible.builtin.raw: |
+    if [ -s {{ ntp_conf_path }} ]; then
+      cp {{ ntp_conf_path }} {{ ntp_conf_path }}.bak_{{ timestamp }}
+    fi
+  changed_when: false
 
-- name: Backup original NTP config
-  ansible.builtin.raw: cp {{ ntp_conf_path }} {{ ntp_conf_path }}.bak_{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}
-
-- name: Replace or append NTP server block
+# ------------------------------------------------
+# Configure NTP servers (managed block)
+# ------------------------------------------------
+- name: Configure NTP servers (ANSIBLE MANAGED)
   ansible.builtin.raw: |
     awk '
     BEGIN {found=0}
@@ -40,12 +58,9 @@
     {if (!found) print}
     END {
       print "# BEGIN ANSIBLE MANAGED NTP SERVERS"
-      {% for server in ntp_servers %}
+    {% for server in ntp_servers %}
       print "server {{ server }} iburst"
-      {% endfor %}
+    {% endfor %}
       print "# END ANSIBLE MANAGED NTP SERVERS"
-    }
-    ' {{ ntp_conf_path }} > /tmp/ntp.conf && mv /tmp/ntp.conf {{ ntp_conf_path }}
-
-- name: Restart NTP service
-  ansible.builtin.raw: "{{ ntp_restart_cmd }}"
+    }' {{ ntp_conf_path }} > /tmp/ntp.conf && mv /tmp/ntp.conf {{ ntp_conf_path }}
+  notify: Restart NTP service

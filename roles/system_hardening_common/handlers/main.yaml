@@ -3,3 +3,7 @@
   ansible.builtin.service:
     name: sshd
     state: restarted
+
+- name: Restart NTP service-unix
+  ansible.builtin.raw: "{{ ntp_restart_cmd }}"
+  ignore_errors: true
