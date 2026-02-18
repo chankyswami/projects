@@ -7,3 +7,9 @@
 - name: Restart NTP service-unix
   ansible.builtin.raw: "{{ ntp_restart_cmd }}"
   ignore_errors: true
+
+- name: Restart SSH service-unix
+  ansible.builtin.raw: "{{ ssh_service_restart_cmd }}"
+  become: true
+  ignore_errors: true
+
