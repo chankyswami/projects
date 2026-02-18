@@ -82,5 +82,5 @@
       print "# END ANSIBLE MANAGED NTP SERVERS"
     }' "{{ ntp_conf_path }}" > /tmp/ntp.conf && mv /tmp/ntp.conf "{{ ntp_conf_path }}"
   when: ntp_config_check.stdout | trim != ''
-  notify: Restart NTP service
+  notify: Restart NTP service-unix
   changed_when: true
