@@ -4,11 +4,18 @@
 # Harden only if already configured
 # ============================================
 
+# ------------------------------------------------
+# Detect OS type
+# ------------------------------------------------
 - name: Detect OS type
   ansible.builtin.raw: uname
   register: os_name
   changed_when: false
+  failed_when: false
 
+# ------------------------------------------------
+# Set NTP paths and restart command per OS
+# ------------------------------------------------
 - name: Set NTP paths and restart command per OS
   ansible.builtin.set_fact:
     ntp_conf_path: >-
@@ -30,14 +37,18 @@
 
 # ------------------------------------------------
 # Check if NTP is configured at all
+# (file exists AND has at least one server entry)
 # ------------------------------------------------
 - name: Check if NTP config exists and has servers
   ansible.builtin.raw: |
     if [ -f {{ ntp_conf_path }} ]; then
-      grep -E '^[[:space:]]*server[[:space:]]+' {{ ntp_conf_path }} || true
+      grep -E '^[[:space:]]*server[[:space:]]+' {{ ntp_conf_path }} || :
+    else
+      :
     fi
   register: ntp_config_check
   changed_when: false
+  failed_when: false
 
 # ------------------------------------------------
 # Skip if NTP is not configured
@@ -45,7 +56,7 @@
 - name: Skip NTP hardening if not configured
   ansible.builtin.debug:
     msg: "NTP is not configured on this UNIX system. Skipping hardening."
-  when: ntp_config_check.stdout == ''
+  when: ntp_config_check.stdout | trim == ''
 
 # ------------------------------------------------
 # Backup existing config
@@ -53,7 +64,8 @@
 - name: Backup existing NTP config
   ansible.builtin.raw: |
     cp {{ ntp_conf_path }} {{ ntp_conf_path }}.bak_{{ timestamp }}
-  when: ntp_config_check.stdout != ''
+  when: ntp_config_check.stdout | trim != ''
+  changed_when: true
 
 # ------------------------------------------------
 # Enforce managed NTP servers
@@ -62,7 +74,7 @@
   ansible.builtin.raw: |
     awk '
     BEGIN {found=0}
-    /^# BEGIN ANSIBLE MANAGED NTP SERVERS/ {found=1}
+    /^# BEGIN ANSIBLE MANAGED NTP SERVERS/ {found=1; next}
     /^# END ANSIBLE MANAGED NTP SERVERS/ {found=0; next}
     {if (!found) print}
     END {
@@ -72,5 +84,6 @@
     {% endfor %}
       print "# END ANSIBLE MANAGED NTP SERVERS"
     }' {{ ntp_conf_path }} > /tmp/ntp.conf && mv /tmp/ntp.conf {{ ntp_conf_path }}
-  when: ntp_config_check.stdout != ''
+  when: ntp_config_check.stdout | trim != ''
   notify: Restart NTP service
+  changed_when: true
